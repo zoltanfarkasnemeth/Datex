@@ -1,0 +1,34 @@
+name: Update Traffic Map
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # 10 percenként fut le automatikusan
+  workflow_dispatch:      # Lehetővé teszi a kézi indítást is
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Fontos: engedély az index.html írására
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run script
+        run: python datex_megjelenites.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Automated map update" || exit 0
+          git push

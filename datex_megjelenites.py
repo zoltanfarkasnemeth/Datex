@@ -7,8 +7,8 @@ from datetime import datetime
 URL = "https://napphub.kozut.hu/hub-web//datex2/3_3/4a8b2505-df5e-4191-8c96-b98263a771b5/pullSnapshotData"
 OUTPUT_FILE = "index.html"
 
-# Saját repóból – ugyanabban a mappában van a megyek.geojson
-COUNTIES_GEOJSON_URL = "https://raw.githubusercontent.com/zoltanfarkasnemeth/datex2-map/main/megyek.geojson"
+# Saját repóból – a repó neve: Datex
+COUNTIES_GEOJSON_URL = "https://raw.githubusercontent.com/zoltanfarkasnemeth/Datex/main/megyek.geojson"
 
 # Datex v3.3 Névterek
 NS = {
@@ -27,7 +27,7 @@ def fetch_counties_geojson():
         print(f"  GeoJSON OK: {len(data.get('features', []))} feature betöltve")
         return data
     except Exception as e:
-        print(f"  HIBA a GeoJSON letöltésekor: {e}")
+        print(f"  HIBA a GeoJSON letöltésekor ({COUNTIES_GEOJSON_URL}): {e}")
         return None
 
 def update_map():

@@ -3,7 +3,10 @@ import xml.etree.ElementTree as ET
 import folium
 from datetime import datetime
 
-URL = "https://napphub.kozut.hu/hub-web//datex2/3_3/4a8b2505-df5e-4191-8c96-b98263a771b5/pullSnapshotData"
+URLS = [
+    "https://napphub.kozut.hu/hub-web//datex2/3_3/4a8b2505-df5e-4191-8c96-b98263a771b5/pullSnapshotData",
+    "https://napphub.kozut.hu/hub-web//datex2/3_3/c5a43ed1-8b33-4907-be59-1e6dd1cd5f92/pullSnapshotData",
+]
 OUTPUT_FILE = "index.html"
 COUNTIES_GEOJSON_URL = "https://raw.githubusercontent.com/zoltanfarkasnemeth/Datex/main/megyek.geojson"
 
@@ -336,12 +339,43 @@ def fetch_counties_geojson():
         return None
 
 
+def fetch_situation_records(url: str):
+    """Egy DATEX II snapshot letöltése és a situationRecord elemek visszaadása."""
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+        records = root.findall('.//ns19:situationRecord', NS)
+        print(f"  {url.split('/')[-2][:8]}...: {len(records)} rekord")
+        return records
+    except requests.exceptions.RequestException as e:
+        print(f"  Hálózati hiba ({url}): {e}")
+    except ET.ParseError as e:
+        print(f"  XML parse hiba ({url}): {e}")
+    return []
+
+
 def update_map():
     print(f"Lekérdezés: {datetime.now()}")
     try:
-        response = requests.get(URL, timeout=30)
-        response.raise_for_status()
-        root = ET.fromstring(response.content)
+        # --- Összes forrás beolvasása, duplikátumszűréssel ---
+        print("Adatforrások letöltése...")
+        all_records = []
+        seen_ids = set()
+        for url in URLS:
+            for rec in fetch_situation_records(url):
+                rec_id = rec.get('id')
+                if rec_id:
+                    if rec_id in seen_ids:
+                        continue
+                    seen_ids.add(rec_id)
+                all_records.append(rec)
+
+        if not all_records:
+            print("Nincs feldolgozható esemény, kilépés.")
+            return
+
+        print(f"Összesen {len(all_records)} egyedi rekord.")
 
         m = folium.Map(location=[47.1625, 19.5033], zoom_start=8)
         m.get_root().header.add_child(
@@ -384,7 +418,7 @@ def update_map():
             'ns24': 'http://datex2.eu/schema/3/common',
         }
 
-        for record in root.findall('.//ns19:situationRecord', NS_LOC):
+        for record in all_records:
             xsi_type = record.get('{http://www.w3.org/2001/XMLSchema-instance}type', '')
             cat_key, (svg_body, popup_color, label) = get_category(xsi_type)
 
@@ -464,10 +498,6 @@ def update_map():
         m.save(OUTPUT_FILE)
         print(f"\nSiker: {count} esemény, {len(used_categories)} kategória -> {OUTPUT_FILE}")
 
-    except requests.exceptions.RequestException as e:
-        print(f"Hálózati hiba: {e}")
-    except ET.ParseError as e:
-        print(f"XML parse hiba: {e}")
     except Exception as e:
         print(f"Hiba: {e}")
         import traceback; traceback.print_exc()
